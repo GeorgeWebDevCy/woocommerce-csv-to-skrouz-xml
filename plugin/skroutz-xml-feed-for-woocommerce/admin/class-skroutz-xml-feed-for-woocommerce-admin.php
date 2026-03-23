@@ -113,6 +113,38 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		exit;
 	}
 
+	public function handle_sync_default_brand() {
+		if ( ! current_user_can( $this->get_required_capability() ) ) {
+			wp_die( esc_html__( 'You do not have permission to sync the default brand.', 'skroutz-xml-feed-for-woocommerce' ) );
+		}
+
+		check_admin_referer( 'sxffw_sync_default_brand' );
+
+		if ( ! class_exists( 'WooCommerce' ) ) {
+			wp_safe_redirect( add_query_arg( array( 'page' => self::PAGE_SLUG, 'sxffw_notice' => 'error', 'sxffw_message' => __( 'WooCommerce must be active before brand sync can run.', 'skroutz-xml-feed-for-woocommerce' ) ), $this->get_base_admin_url() ) );
+			exit;
+		}
+
+		$default_manufacturer = sanitize_text_field( (string) Skroutz_Xml_Feed_For_Woocommerce_Settings::get( 'default_manufacturer' ) );
+
+		if ( '' === $default_manufacturer ) {
+			wp_safe_redirect( add_query_arg( array( 'page' => self::PAGE_SLUG, 'sxffw_notice' => 'error', 'sxffw_message' => __( 'Set a Default manufacturer before applying it to WooCommerce brands.', 'skroutz-xml-feed-for-woocommerce' ) ), $this->get_base_admin_url() ) );
+			exit;
+		}
+
+		try {
+			$this->sync_manufacturer_meta_to_database( $default_manufacturer, $default_manufacturer );
+			$this->generator->invalidate_cache( 'Default manufacturer brand sync executed manually.' );
+			$this->generator->generate_feed();
+			wp_safe_redirect( add_query_arg( array( 'page' => self::PAGE_SLUG, 'sxffw_notice' => 'sync_applied' ), $this->get_base_admin_url() ) );
+		} catch ( Throwable $throwable ) {
+			$this->logger->error( 'Manual default brand sync failed.', array( 'message' => $throwable->getMessage() ) );
+			wp_safe_redirect( add_query_arg( array( 'page' => self::PAGE_SLUG, 'sxffw_notice' => 'error', 'sxffw_message' => $throwable->getMessage() ), $this->get_base_admin_url() ) );
+		}
+
+		exit;
+	}
+
 	public function handle_clear_log() {
 		if ( ! current_user_can( $this->get_required_capability() ) ) {
 			wp_die( esc_html__( 'You do not have permission to clear the log.', 'skroutz-xml-feed-for-woocommerce' ) );
@@ -140,6 +172,7 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		$report_state        = empty( $report ) ? 'missing' : ( $this->generator->is_cache_fresh( $report ) ? 'fresh' : 'stale' );
 		$settings_action_url = admin_url( 'options.php' );
 		$generate_action_url = wp_nonce_url( admin_url( 'admin-post.php?action=sxffw_generate_feed' ), 'sxffw_generate_feed' );
+		$sync_brand_action_url = wp_nonce_url( admin_url( 'admin-post.php?action=sxffw_sync_default_brand' ), 'sxffw_sync_default_brand' );
 		$clear_log_action_url = wp_nonce_url( admin_url( 'admin-post.php?action=sxffw_clear_log' ), 'sxffw_clear_log' );
 		$feed_url            = $this->generator->get_endpoint_url();
 		$xml_url             = ! empty( $report['xml_url'] ) ? $report['xml_url'] : $this->generator->get_xml_url();
@@ -446,6 +479,9 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		if ( 'generated' === $notice ) {
 			return array( 'type' => 'success', 'message' => __( 'The Skroutz XML feed was regenerated successfully.', 'skroutz-xml-feed-for-woocommerce' ) );
 		}
+		if ( 'sync_applied' === $notice ) {
+			return array( 'type' => 'success', 'message' => __( 'The default manufacturer was re-applied to WooCommerce brands and the feed was regenerated.', 'skroutz-xml-feed-for-woocommerce' ) );
+		}
 		if ( 'diagnostics_cleared' === $notice ) {
 			return array( 'type' => 'success', 'message' => __( 'The plugin log and last validation report were cleared successfully.', 'skroutz-xml-feed-for-woocommerce' ) );
 		}
@@ -477,7 +513,7 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		$product_ids = get_posts(
 			array(
 				'post_type'      => 'product',
-				'post_status'    => array( 'publish', 'private', 'draft', 'pending', 'future' ),
+				'post_status'    => 'any',
 				'fields'         => 'ids',
 				'posts_per_page' => -1,
 				'orderby'        => 'ID',

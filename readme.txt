@@ -4,7 +4,7 @@ Tags: skroutz, woocommerce, xml, product feed, marketplace
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,10 @@ Yes. Variation rows are exported individually, and the plugin can infer color an
 
 == Changelog ==
 
+= 1.0.6 =
+* Added an explicit “Apply Default Brand” action in the plugin dashboard to force brand-term creation and assignment even when the setting value itself has not changed.
+* Manual brand sync now scans products across all statuses and regenerates the feed immediately after the sync finishes.
+
 = 1.0.5 =
 * Creates the default manufacturer as a real WooCommerce brand term in a supported brand taxonomy and assigns it to products that are missing a brand.
 * Keeps the Skroutz manufacturer sync aligned with those brand assignments so feed data and WooCommerce taxonomy data stay in step.
@@ -112,6 +116,9 @@ Yes. Variation rows are exported individually, and the plugin can infer color an
 * Added GitHub-based update support using Plugin Update Checker.
 
 == Upgrade Notice ==
+
+= 1.0.6 =
+Adds a dedicated button to force default-brand creation and assignment for products, then regenerates the feed immediately.
 
 = 1.0.5 =
 Adds default-manufacturer backfill into supported WooCommerce brand taxonomies so missing brands are created and assigned automatically.
