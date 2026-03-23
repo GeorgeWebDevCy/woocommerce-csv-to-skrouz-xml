@@ -65,6 +65,21 @@ class Skroutz_Xml_Feed_For_Woocommerce_Logger {
 	}
 
 	/**
+	 * Clear the log file contents.
+	 *
+	 * @return bool
+	 */
+	public function clear() {
+		$directory = dirname( $this->log_path );
+
+		if ( ! is_dir( $directory ) && ! wp_mkdir_p( $directory ) ) {
+			return false;
+		}
+
+		return false !== file_put_contents( $this->log_path, '', LOCK_EX );
+	}
+
+	/**
 	 * Write a line to disk.
 	 *
 	 * @param string               $level   Log level.

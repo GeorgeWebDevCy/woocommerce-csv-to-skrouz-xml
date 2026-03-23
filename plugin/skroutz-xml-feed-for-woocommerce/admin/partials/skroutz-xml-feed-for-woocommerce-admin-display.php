@@ -8,6 +8,7 @@
  * @var string $report_state
  * @var string $settings_action_url
  * @var string $generate_action_url
+ * @var string $clear_log_action_url
  * @var string $feed_url
  * @var string $xml_url
  * @var string $log_path
@@ -46,6 +47,7 @@
 			<code><?php echo esc_html( $log_path ); ?></code>
 			<p>
 				<a class="button button-primary" href="<?php echo esc_url( $generate_action_url ); ?>"><?php esc_html_e( 'Generate Feed Now', 'skroutz-xml-feed-for-woocommerce' ); ?></a>
+				<a class="button button-secondary" href="<?php echo esc_url( $clear_log_action_url ); ?>"><?php esc_html_e( 'Clear Log', 'skroutz-xml-feed-for-woocommerce' ); ?></a>
 			</p>
 		</div>
 	</div>

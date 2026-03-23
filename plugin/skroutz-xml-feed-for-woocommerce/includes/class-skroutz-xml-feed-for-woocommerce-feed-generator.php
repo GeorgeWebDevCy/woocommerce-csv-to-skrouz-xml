@@ -85,6 +85,14 @@ class Skroutz_Xml_Feed_For_Woocommerce_Feed_Generator {
 		return $report;
 	}
 
+	public function detect_manufacturer_value( $product, $parent = null ) {
+		if ( ! $product instanceof WC_Product ) {
+			return '';
+		}
+
+		return $this->detect_manufacturer( $product, $parent instanceof WC_Product ? $parent : null );
+	}
+
 	public function invalidate_cache( $reason = '' ) {
 		$report = Skroutz_Xml_Feed_For_Woocommerce_Settings::get_report();
 

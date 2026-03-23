@@ -4,6 +4,7 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 
 	const PAGE_SLUG = 'sxffw';
 	const DEFAULT_MANUFACTURER_MARKER_META_KEY = '_sxffw_default_manufacturer_applied';
+	const DETECTED_MANUFACTURER_MARKER_META_KEY = '_sxffw_detected_manufacturer_applied';
 	const BACKFILL_NOTICE_TRANSIENT_KEY        = 'sxffw_backfill_notice';
 
 	private $plugin_name;
@@ -109,6 +110,19 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		exit;
 	}
 
+	public function handle_clear_log() {
+		if ( ! current_user_can( $this->get_required_capability() ) ) {
+			wp_die( esc_html__( 'You do not have permission to clear the log.', 'skroutz-xml-feed-for-woocommerce' ) );
+		}
+
+		check_admin_referer( 'sxffw_clear_log' );
+
+		$notice = $this->logger->clear() ? 'log_cleared' : 'log_clear_failed';
+
+		wp_safe_redirect( add_query_arg( array( 'page' => self::PAGE_SLUG, 'sxffw_notice' => $notice ), $this->get_base_admin_url() ) );
+		exit;
+	}
+
 	public function render_settings_page() {
 		if ( ! current_user_can( $this->get_required_capability() ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'skroutz-xml-feed-for-woocommerce' ) );
@@ -121,6 +135,7 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		$report_state        = empty( $report ) ? 'missing' : ( $this->generator->is_cache_fresh( $report ) ? 'fresh' : 'stale' );
 		$settings_action_url = admin_url( 'options.php' );
 		$generate_action_url = wp_nonce_url( admin_url( 'admin-post.php?action=sxffw_generate_feed' ), 'sxffw_generate_feed' );
+		$clear_log_action_url = wp_nonce_url( admin_url( 'admin-post.php?action=sxffw_clear_log' ), 'sxffw_clear_log' );
 		$feed_url            = $this->generator->get_endpoint_url();
 		$xml_url             = ! empty( $report['xml_url'] ) ? $report['xml_url'] : $this->generator->get_xml_url();
 		$log_path            = $this->logger->get_log_path();
@@ -143,6 +158,15 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 			return;
 		}
 
+		if ( 'product' === $post_type ) {
+			$this->sync_single_product_manufacturer_meta( $post_id );
+		} elseif ( 'product_variation' === $post_type ) {
+			$parent_id = (int) wp_get_post_parent_id( $post_id );
+			if ( $parent_id > 0 ) {
+				$this->sync_single_product_manufacturer_meta( $parent_id );
+			}
+		}
+
 		$this->generator->invalidate_cache( 'Product content changed.' );
 	}
 
@@ -152,11 +176,19 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		$old_default_manufacturer = isset( $old_value['default_manufacturer'] ) ? sanitize_text_field( (string) $old_value['default_manufacturer'] ) : '';
 		$new_default_manufacturer = isset( $new_value['default_manufacturer'] ) ? sanitize_text_field( (string) $new_value['default_manufacturer'] ) : '';
 
-		if ( $old_default_manufacturer !== $new_default_manufacturer ) {
-			$this->sync_default_manufacturer_to_database( $old_default_manufacturer, $new_default_manufacturer );
-		}
+		$this->sync_manufacturer_meta_to_database( $old_default_manufacturer, $new_default_manufacturer );
 
 		$this->generator->invalidate_cache( 'Plugin settings changed.' );
+
+		if ( ! class_exists( 'WooCommerce' ) ) {
+			return;
+		}
+
+		try {
+			$this->generator->generate_feed();
+		} catch ( Throwable $throwable ) {
+			$this->logger->error( 'Feed regeneration after settings save failed.', array( 'message' => $throwable->getMessage() ) );
+		}
 	}
 
 	public function invalidate_cache_for_stock_change( $product ) {
@@ -365,6 +397,7 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 
 		if ( 'manufacturer' === $field ) {
 			delete_post_meta( $post_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY );
+			delete_post_meta( $post_id, self::DETECTED_MANUFACTURER_MARKER_META_KEY );
 		}
 	}
 
@@ -408,6 +441,12 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		if ( 'generated' === $notice ) {
 			return array( 'type' => 'success', 'message' => __( 'The Skroutz XML feed was regenerated successfully.', 'skroutz-xml-feed-for-woocommerce' ) );
 		}
+		if ( 'log_cleared' === $notice ) {
+			return array( 'type' => 'success', 'message' => __( 'The plugin log was cleared successfully.', 'skroutz-xml-feed-for-woocommerce' ) );
+		}
+		if ( 'log_clear_failed' === $notice ) {
+			return array( 'type' => 'error', 'message' => __( 'The plugin log could not be cleared.', 'skroutz-xml-feed-for-woocommerce' ) );
+		}
 
 		$message = ! empty( $_GET['sxffw_message'] ) ? sanitize_text_field( wp_unslash( $_GET['sxffw_message'] ) ) : __( 'The requested action could not be completed.', 'skroutz-xml-feed-for-woocommerce' );
 		return array( 'type' => 'error', 'message' => $message );
@@ -425,7 +464,7 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		return add_query_arg( array( 'page' => self::PAGE_SLUG ), $this->get_base_admin_url() );
 	}
 
-	private function sync_default_manufacturer_to_database( $old_manufacturer, $new_manufacturer ) {
+	private function sync_manufacturer_meta_to_database( $old_manufacturer, $new_manufacturer ) {
 		if ( ! function_exists( 'wc_get_product' ) ) {
 			return;
 		}
@@ -442,57 +481,30 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 			)
 		);
 
-		$inserted = 0;
-		$updated  = 0;
-		$cleared  = 0;
+		$summary = array(
+			'detected_added'   => 0,
+			'detected_updated' => 0,
+			'default_added'    => 0,
+			'default_updated'  => 0,
+			'cleared'          => 0,
+		);
 
 		foreach ( $product_ids as $product_id ) {
-			$current_override = get_post_meta( $product_id, Skroutz_Xml_Feed_For_Woocommerce_Settings::meta_key( 'manufacturer' ), true );
-			$is_auto_applied  = 'yes' === get_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY, true );
+			$outcome = $this->sync_single_product_manufacturer_meta( $product_id, $new_manufacturer );
 
-			if ( $is_auto_applied ) {
-				if ( '' === $new_manufacturer ) {
-					delete_post_meta( $product_id, Skroutz_Xml_Feed_For_Woocommerce_Settings::meta_key( 'manufacturer' ) );
-					delete_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY );
-					++$cleared;
-					continue;
-				}
-
-				if ( $current_override !== $new_manufacturer ) {
-					update_post_meta( $product_id, Skroutz_Xml_Feed_For_Woocommerce_Settings::meta_key( 'manufacturer' ), $new_manufacturer );
-					++$updated;
-				}
-
-				continue;
+			if ( isset( $summary[ $outcome ] ) ) {
+				++$summary[ $outcome ];
 			}
-
-			if ( '' === $new_manufacturer && '' === $old_manufacturer ) {
-				continue;
-			}
-
-			if ( '' !== trim( (string) $current_override ) ) {
-				continue;
-			}
-
-			if ( '' === $new_manufacturer || $this->product_has_existing_manufacturer_source( $product_id ) ) {
-				continue;
-			}
-
-			update_post_meta( $product_id, Skroutz_Xml_Feed_For_Woocommerce_Settings::meta_key( 'manufacturer' ), $new_manufacturer );
-			update_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY, 'yes' );
-			++$inserted;
-		}
-
-		if ( 0 === $inserted && 0 === $updated && 0 === $cleared ) {
-			return;
 		}
 
 		$message = sprintf(
-			/* translators: 1: inserted count, 2: updated count, 3: cleared count */
-			__( 'Default manufacturer sync complete. Added: %1$d, updated: %2$d, cleared: %3$d.', 'skroutz-xml-feed-for-woocommerce' ),
-			$inserted,
-			$updated,
-			$cleared
+			/* translators: 1: detected added count, 2: detected updated count, 3: default added count, 4: default updated count, 5: cleared count */
+			__( 'Manufacturer sync complete. WooCommerce data added: %1$d, updated: %2$d. Default manufacturer added: %3$d, updated: %4$d. Cleared: %5$d.', 'skroutz-xml-feed-for-woocommerce' ),
+			$summary['detected_added'],
+			$summary['detected_updated'],
+			$summary['default_added'],
+			$summary['default_updated'],
+			$summary['cleared']
 		);
 
 		set_transient(
@@ -505,76 +517,83 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		);
 
 		$this->logger->info(
-			'Default manufacturer synced to product meta.',
+			'Manufacturer sources synced to product meta.',
 			array(
 				'old_default_manufacturer' => $old_manufacturer,
 				'new_default_manufacturer' => $new_manufacturer,
-				'inserted'                 => $inserted,
-				'updated'                  => $updated,
-				'cleared'                  => $cleared,
+				'summary'                  => $summary,
 			)
 		);
 	}
 
-	private function product_has_existing_manufacturer_source( $product_id ) {
-		foreach ( array( 'product_brand', 'pwb-brand', 'yith_product_brand', 'brand' ) as $taxonomy ) {
-			if ( taxonomy_exists( $taxonomy ) ) {
-				$terms = wp_get_post_terms( $product_id, $taxonomy, array( 'fields' => 'ids' ) );
-				if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
-					return true;
-				}
-			}
-		}
-
-		foreach ( array( '_brand', 'brand', '_manufacturer', 'manufacturer' ) as $meta_key ) {
-			$value = get_post_meta( $product_id, $meta_key, true );
-			if ( '' !== trim( (string) $value ) ) {
-				return true;
-			}
-		}
-
+	private function sync_single_product_manufacturer_meta( $product_id, $default_manufacturer = null ) {
 		$product = wc_get_product( $product_id );
 		if ( ! $product instanceof WC_Product ) {
-			return false;
+			return '';
 		}
 
-		foreach ( $product->get_attributes() as $attribute ) {
-			if ( ! $attribute instanceof WC_Product_Attribute ) {
-				continue;
-			}
+		$default_manufacturer = null === $default_manufacturer
+			? sanitize_text_field( (string) Skroutz_Xml_Feed_For_Woocommerce_Settings::get( 'default_manufacturer' ) )
+			: sanitize_text_field( (string) $default_manufacturer );
+		$meta_key             = Skroutz_Xml_Feed_For_Woocommerce_Settings::meta_key( 'manufacturer' );
+		$current_override     = trim( (string) get_post_meta( $product_id, $meta_key, true ) );
+		$is_default_auto      = 'yes' === get_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY, true );
+		$is_detected_auto     = 'yes' === get_post_meta( $product_id, self::DETECTED_MANUFACTURER_MARKER_META_KEY, true );
+		$detected_value       = trim( (string) $this->generator->detect_manufacturer_value( $product ) );
 
-			$attribute_name = $attribute->get_name();
-			$label          = wc_attribute_label( $attribute_name );
-			if ( ! $this->attribute_label_matches_keywords( $label, array( 'brand', 'manufacturer', 'μάρκα', 'marka' ) ) ) {
-				continue;
-			}
+		if ( '' !== $detected_value ) {
+			if ( $is_detected_auto ) {
+				delete_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY );
 
-			if ( $attribute->is_taxonomy() ) {
-				$terms = wc_get_product_terms( $product_id, $attribute_name, array( 'fields' => 'ids' ) );
-				if ( ! empty( $terms ) ) {
-					return true;
+				if ( $current_override !== $detected_value ) {
+					update_post_meta( $product_id, $meta_key, $detected_value );
+					return 'detected_updated';
 				}
+
+				return '';
 			}
 
-			$options = $attribute->get_options();
-			if ( ! empty( $options ) ) {
-				return true;
+			if ( $is_default_auto || '' === $current_override ) {
+				update_post_meta( $product_id, $meta_key, $detected_value );
+				update_post_meta( $product_id, self::DETECTED_MANUFACTURER_MARKER_META_KEY, 'yes' );
+				delete_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY );
+				return $is_default_auto ? 'detected_updated' : 'detected_added';
 			}
+
+			return '';
 		}
 
-		return false;
-	}
-
-	private function attribute_label_matches_keywords( $label, $keywords ) {
-		$label = function_exists( 'mb_strtolower' ) ? mb_strtolower( wp_strip_all_tags( (string) $label ) ) : strtolower( wp_strip_all_tags( (string) $label ) );
-
-		foreach ( $keywords as $keyword ) {
-			$keyword = function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $keyword ) : strtolower( (string) $keyword );
-			if ( false !== strpos( $label, $keyword ) ) {
-				return true;
-			}
+		if ( $is_detected_auto ) {
+			delete_post_meta( $product_id, $meta_key );
+			delete_post_meta( $product_id, self::DETECTED_MANUFACTURER_MARKER_META_KEY );
+			delete_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY );
+			$current_override = '';
 		}
 
-		return false;
+		if ( $is_default_auto ) {
+			if ( '' === $default_manufacturer ) {
+				delete_post_meta( $product_id, $meta_key );
+				delete_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY );
+				return 'cleared';
+			}
+
+			if ( $current_override !== $default_manufacturer ) {
+				update_post_meta( $product_id, $meta_key, $default_manufacturer );
+				delete_post_meta( $product_id, self::DETECTED_MANUFACTURER_MARKER_META_KEY );
+				return 'default_updated';
+			}
+
+			delete_post_meta( $product_id, self::DETECTED_MANUFACTURER_MARKER_META_KEY );
+			return '';
+		}
+
+		if ( '' !== $current_override || '' === $default_manufacturer ) {
+			return '';
+		}
+
+		update_post_meta( $product_id, $meta_key, $default_manufacturer );
+		update_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY, 'yes' );
+		delete_post_meta( $product_id, self::DETECTED_MANUFACTURER_MARKER_META_KEY );
+		return 'default_added';
 	}
 }

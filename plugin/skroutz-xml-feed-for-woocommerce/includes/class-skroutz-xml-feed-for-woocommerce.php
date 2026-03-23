@@ -192,6 +192,7 @@ class Skroutz_Xml_Feed_For_Woocommerce {
 		$this->loader->add_action( 'admin_enqueue_scripts', $this->admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $this->admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_post_sxffw_generate_feed', $this->admin, 'handle_generate_feed' );
+		$this->loader->add_action( 'admin_post_sxffw_clear_log', $this->admin, 'handle_clear_log' );
 		$this->loader->add_action( 'woocommerce_product_options_general_product_data', $this->admin, 'render_product_fields' );
 		$this->loader->add_action( 'woocommerce_admin_process_product_object', $this->admin, 'save_product_fields' );
 		$this->loader->add_action( 'woocommerce_variation_options_pricing', $this->admin, 'render_variation_fields', 10, 3 );
