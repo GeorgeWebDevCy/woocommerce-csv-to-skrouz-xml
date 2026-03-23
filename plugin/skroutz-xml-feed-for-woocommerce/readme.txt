@@ -4,7 +4,7 @@ Tags: skroutz, woocommerce, xml, product feed, marketplace
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,9 @@ Yes. Variation rows are exported individually, and the plugin can infer color an
 
 == Changelog ==
 
+= 1.0.4 =
+* Maintenance release to support updater verification from GitHub releases.
+
 = 1.0.3 =
 * Expanded the reset action so the saved “Products Needing Attention” report clears together with the plugin log.
 * Updated the admin button label to clarify that both the log and report are reset.
@@ -105,6 +108,9 @@ Yes. Variation rows are exported individually, and the plugin can infer color an
 * Added GitHub-based update support using Plugin Update Checker.
 
 == Upgrade Notice ==
+
+= 1.0.4 =
+Maintenance updater-test release.
 
 = 1.0.3 =
 Clears the saved “Products Needing Attention” report together with the log, so the diagnostics reset is complete.
