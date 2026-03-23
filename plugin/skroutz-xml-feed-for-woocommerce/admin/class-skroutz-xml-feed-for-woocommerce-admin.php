@@ -117,7 +117,9 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 
 		check_admin_referer( 'sxffw_clear_log' );
 
-		$notice = $this->logger->clear() ? 'log_cleared' : 'log_clear_failed';
+		$log_cleared = $this->logger->clear();
+		Skroutz_Xml_Feed_For_Woocommerce_Settings::update_report( array() );
+		$notice = $log_cleared ? 'diagnostics_cleared' : 'report_cleared_log_failed';
 
 		wp_safe_redirect( add_query_arg( array( 'page' => self::PAGE_SLUG, 'sxffw_notice' => $notice ), $this->get_base_admin_url() ) );
 		exit;
@@ -441,11 +443,11 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		if ( 'generated' === $notice ) {
 			return array( 'type' => 'success', 'message' => __( 'The Skroutz XML feed was regenerated successfully.', 'skroutz-xml-feed-for-woocommerce' ) );
 		}
-		if ( 'log_cleared' === $notice ) {
-			return array( 'type' => 'success', 'message' => __( 'The plugin log was cleared successfully.', 'skroutz-xml-feed-for-woocommerce' ) );
+		if ( 'diagnostics_cleared' === $notice ) {
+			return array( 'type' => 'success', 'message' => __( 'The plugin log and last validation report were cleared successfully.', 'skroutz-xml-feed-for-woocommerce' ) );
 		}
-		if ( 'log_clear_failed' === $notice ) {
-			return array( 'type' => 'error', 'message' => __( 'The plugin log could not be cleared.', 'skroutz-xml-feed-for-woocommerce' ) );
+		if ( 'report_cleared_log_failed' === $notice ) {
+			return array( 'type' => 'error', 'message' => __( 'The validation report was cleared, but the plugin log could not be cleared.', 'skroutz-xml-feed-for-woocommerce' ) );
 		}
 
 		$message = ! empty( $_GET['sxffw_message'] ) ? sanitize_text_field( wp_unslash( $_GET['sxffw_message'] ) ) : __( 'The requested action could not be completed.', 'skroutz-xml-feed-for-woocommerce' );
