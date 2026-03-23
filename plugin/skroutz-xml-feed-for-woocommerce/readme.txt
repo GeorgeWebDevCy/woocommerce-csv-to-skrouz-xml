@@ -4,7 +4,7 @@ Tags: skroutz, woocommerce, xml, product feed, marketplace
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,11 @@ Yes. Variation rows are exported individually, and the plugin can infer color an
 
 == Changelog ==
 
+= 1.0.1 =
+* Added database backfill for the default manufacturer setting on products that do not already have a manufacturer source.
+* Added auto-update of previously backfilled manufacturer values when the default manufacturer changes.
+* Added stronger feed-cache invalidation and response headers to reduce stale XML responses.
+
 = 1.0.0 =
 * Initial public release.
 * Added a public Skroutz XML endpoint and cached XML generation.
@@ -91,6 +96,9 @@ Yes. Variation rows are exported individually, and the plugin can infer color an
 * Added GitHub-based update support using Plugin Update Checker.
 
 == Upgrade Notice ==
+
+= 1.0.1 =
+Updates the feed cache hardening and can backfill the default manufacturer into product meta for products that are still missing manufacturer data.
 
 = 1.0.0 =
 Initial release of Skroutz XML Feed for WooCommerce.

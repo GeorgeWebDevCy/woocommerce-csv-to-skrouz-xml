@@ -11,6 +11,7 @@
  * @var string $feed_url
  * @var string $xml_url
  * @var string $log_path
+ * @var array<string, string>|null $backfill_notice
  */
 ?>
 <div class="wrap sxffw-admin">
@@ -19,6 +20,12 @@
 	<?php if ( ! empty( $notice ) ) : ?>
 		<div class="notice notice-<?php echo esc_attr( 'error' === $notice['type'] ? 'error' : 'success' ); ?> is-dismissible">
 			<p><?php echo esc_html( $notice['message'] ); ?></p>
+		</div>
+	<?php endif; ?>
+
+	<?php if ( ! empty( $backfill_notice ) ) : ?>
+		<div class="notice notice-<?php echo esc_attr( 'error' === $backfill_notice['type'] ? 'error' : 'success' ); ?> is-dismissible">
+			<p><?php echo esc_html( $backfill_notice['message'] ); ?></p>
 		</div>
 	<?php endif; ?>
 

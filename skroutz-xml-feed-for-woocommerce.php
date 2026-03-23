@@ -8,7 +8,7 @@
  * Plugin Name:       Skroutz XML Feed for WooCommerce
  * Plugin URI:        https://github.com/GeorgeWebDevCy/woocommerce-csv-to-skrouz-xml
  * Description:       Generate a Skroutz-compatible WooCommerce XML feed with validation, overrides, and a public feed endpoint.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            George Nicolaou
