@@ -1,0 +1,87 @@
+.sxffw-admin .sxffw-toolbar,
+.sxffw-admin .sxffw-summary,
+.sxffw-admin .sxffw-grid {
+	display: grid;
+	gap: 16px;
+}
+
+.sxffw-admin .sxffw-toolbar {
+	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	margin: 20px 0;
+}
+
+.sxffw-admin .sxffw-toolbar__item,
+.sxffw-admin .sxffw-panel,
+.sxffw-admin .sxffw-card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	box-sizing: border-box;
+	padding: 16px;
+}
+
+.sxffw-admin .sxffw-label {
+	color: #50575e;
+	display: block;
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	margin-bottom: 8px;
+	text-transform: uppercase;
+}
+
+.sxffw-admin .sxffw-summary {
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	margin-bottom: 20px;
+}
+
+.sxffw-admin .sxffw-card__label {
+	color: #50575e;
+	display: block;
+	font-size: 12px;
+	margin-bottom: 6px;
+	text-transform: uppercase;
+}
+
+.sxffw-admin .sxffw-card__value {
+	font-size: 24px;
+	line-height: 1.2;
+}
+
+.sxffw-admin .sxffw-status-legend {
+	background: #f6f7f7;
+	border-left: 4px solid #2271b1;
+	margin: 0 0 20px;
+	padding: 12px 16px;
+}
+
+.sxffw-admin .sxffw-cache-guidance {
+	background: #fff8e5;
+	border-left: 4px solid #dba617;
+	margin: 0 0 20px;
+	padding: 12px 16px;
+}
+
+.sxffw-admin .sxffw-grid {
+	grid-template-columns: 1.1fr 1fr;
+}
+
+.sxffw-admin code {
+	display: inline-block;
+	margin-bottom: 12px;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.sxffw-variation-fields {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	margin: 12px 0;
+	padding: 12px;
+}
+
+@media screen and (max-width: 960px) {
+	.sxffw-admin .sxffw-grid {
+		grid-template-columns: 1fr;
+	}
+}

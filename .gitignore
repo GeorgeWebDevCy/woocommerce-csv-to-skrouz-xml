@@ -1,7 +1,9 @@
 .venv/
+.tools/
 build/
 dist/
 __pycache__/
 *.pyc
 *.pyo
 *.spec
+plugin/wppb-work/

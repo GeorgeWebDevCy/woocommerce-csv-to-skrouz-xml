@@ -1,0 +1,96 @@
+=== Skroutz XML Feed for WooCommerce ===
+Contributors: orionaselite
+Tags: skroutz, woocommerce, xml, product feed, marketplace
+Requires at least: 6.5
+Tested up to: 6.5
+Requires PHP: 7.4
+Stable tag: 1.0.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+Generate a Skroutz-compatible WooCommerce XML feed with validation, per-product overrides, logging, caching, and a public feed URL.
+
+== Description ==
+
+Skroutz XML Feed for WooCommerce generates a Skroutz-ready product feed directly from your WooCommerce catalog.
+
+The plugin is built for stores that need more than a one-click export. It validates the data that Skroutz expects, reports blocking issues, and lets you fix edge cases with product-level and variation-level overrides before the XML is consumed downstream.
+
+= Features =
+
+* Generates a public feed endpoint at `/skroutz-feed.xml`
+* Builds a cached XML file inside your uploads directory
+* Validates feed rows and highlights products that need attention
+* Supports product and variation overrides for title, category, manufacturer, MPN, EAN, availability, size, color, description, and more
+* Uses WooCommerce data, variation attributes, product tax settings, stock state, images, and categories where possible
+* Provides a feed dashboard inside WooCommerce
+* Writes a plugin log file for feed-generation diagnostics
+* Supports GitHub-based updates through Plugin Update Checker
+
+= Feed behavior =
+
+The plugin exports products that are publishable and supported by the feed rules. Variable parent products are reported but exported through their child variations. Products with blocking validation errors are kept out of the final XML until their issues are fixed.
+
+= Logs and cache files =
+
+By default, the generated XML and log file are stored in:
+
+* `wp-content/uploads/skroutz-xml-feed/skroutz-feed.xml`
+* `wp-content/uploads/skroutz-xml-feed/logs/skroutz-feed.log`
+
+== Installation ==
+
+1. Upload the `skroutz-xml-feed-for-woocommerce` folder to the `/wp-content/plugins/` directory.
+1. Activate the plugin through the `Plugins` screen in WordPress.
+1. Make sure WooCommerce is installed and active.
+1. Open `WooCommerce -> Skroutz XML Feed`.
+1. Review the generated feed URL, settings, and validation report.
+1. Click `Generate Feed Now` to build the first feed.
+1. Submit the public feed URL to Skroutz or validate it first at `https://validator.skroutz.gr/`.
+
+== Frequently Asked Questions ==
+
+= What URL should I give to Skroutz? =
+
+Use the public endpoint shown in the plugin dashboard, typically `https://your-store.example/skroutz-feed.xml`.
+
+= Why is a product marked "Needs fixes"? =
+
+That means the product is intended for export, but it has one or more blocking validation errors. It will not be written to the XML until those issues are resolved.
+
+= Why is a product marked "Excluded"? =
+
+That means the plugin is intentionally skipping that row, for example because the product is unpublished, manually excluded, hidden from the catalog, unsupported, or a variable parent that should be represented by variations instead.
+
+= Can SKU be used as EAN? =
+
+Only as a fallback when the SKU looks like a real 13-digit barcode. Otherwise the plugin keeps the product blocked until a valid EAN is available.
+
+= How do I avoid stale feed data with cache plugins or a CDN? =
+
+Always submit the public feed endpoint, usually `https://your-store.example/skroutz-feed.xml`, to Skroutz. The plugin invalidates its own XML cache when product content, stock, pricing, or plugin settings change, and the public endpoint sends no-cache headers for common cache layers.
+
+If your site uses server-side page caching, a reverse proxy, or a CDN, exclude `/skroutz-feed.xml` from caching. The uploads-based cached XML file is intended for debugging and should not be used as the public feed URL.
+
+= Does the plugin work with product variations? =
+
+Yes. Variation rows are exported individually, and the plugin can infer color and size from WooCommerce variation attributes.
+
+== Screenshots ==
+
+1. The main WooCommerce feed dashboard with the public feed URL, cache status, and validation summary.
+2. The validation report highlighting products that need fixes before they can be exported.
+3. Product-level Skroutz override fields inside the WooCommerce product editor.
+
+== Changelog ==
+
+= 1.0.0 =
+* Initial public release.
+* Added a public Skroutz XML endpoint and cached XML generation.
+* Added WooCommerce admin tools, validation reporting, logging, and per-product overrides.
+* Added GitHub-based update support using Plugin Update Checker.
+
+== Upgrade Notice ==
+
+= 1.0.0 =
+Initial release of Skroutz XML Feed for WooCommerce.
