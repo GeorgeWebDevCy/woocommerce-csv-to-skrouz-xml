@@ -5,6 +5,9 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 	const PAGE_SLUG = 'sxffw';
 	const DEFAULT_MANUFACTURER_MARKER_META_KEY = '_sxffw_default_manufacturer_applied';
 	const DETECTED_MANUFACTURER_MARKER_META_KEY = '_sxffw_detected_manufacturer_applied';
+	const DEFAULT_BRAND_MARKER_META_KEY = '_sxffw_default_brand_assigned';
+	const DEFAULT_BRAND_TAXONOMY_META_KEY = '_sxffw_default_brand_taxonomy';
+	const DEFAULT_BRAND_TERM_ID_META_KEY = '_sxffw_default_brand_term_id';
 	const BACKFILL_NOTICE_TRANSIENT_KEY        = 'sxffw_backfill_notice';
 
 	private $plugin_name;
@@ -161,11 +164,11 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		}
 
 		if ( 'product' === $post_type ) {
-			$this->sync_single_product_manufacturer_meta( $post_id );
+			$this->sync_single_product_manufacturer_data( $post_id );
 		} elseif ( 'product_variation' === $post_type ) {
 			$parent_id = (int) wp_get_post_parent_id( $post_id );
 			if ( $parent_id > 0 ) {
-				$this->sync_single_product_manufacturer_meta( $parent_id );
+				$this->sync_single_product_manufacturer_data( $parent_id );
 			}
 		}
 
@@ -484,6 +487,9 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		);
 
 		$summary = array(
+			'brand_added'      => 0,
+			'brand_updated'    => 0,
+			'brand_cleared'    => 0,
 			'detected_added'   => 0,
 			'detected_updated' => 0,
 			'default_added'    => 0,
@@ -492,16 +498,21 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		);
 
 		foreach ( $product_ids as $product_id ) {
-			$outcome = $this->sync_single_product_manufacturer_meta( $product_id, $new_manufacturer );
+			$outcomes = $this->sync_single_product_manufacturer_data( $product_id, $new_manufacturer );
 
-			if ( isset( $summary[ $outcome ] ) ) {
-				++$summary[ $outcome ];
+			foreach ( $outcomes as $outcome ) {
+				if ( isset( $summary[ $outcome ] ) ) {
+					++$summary[ $outcome ];
+				}
 			}
 		}
 
 		$message = sprintf(
-			/* translators: 1: detected added count, 2: detected updated count, 3: default added count, 4: default updated count, 5: cleared count */
-			__( 'Manufacturer sync complete. WooCommerce data added: %1$d, updated: %2$d. Default manufacturer added: %3$d, updated: %4$d. Cleared: %5$d.', 'skroutz-xml-feed-for-woocommerce' ),
+			/* translators: 1: brand added count, 2: brand updated count, 3: brand cleared count, 4: detected manufacturer added count, 5: detected manufacturer updated count, 6: default manufacturer added count, 7: default manufacturer updated count, 8: cleared manufacturer count */
+			__( 'Manufacturer sync complete. Brand terms added: %1$d, updated: %2$d, cleared: %3$d. WooCommerce manufacturer data added: %4$d, updated: %5$d. Default manufacturer added: %6$d, updated: %7$d. Cleared: %8$d.', 'skroutz-xml-feed-for-woocommerce' ),
+			$summary['brand_added'],
+			$summary['brand_updated'],
+			$summary['brand_cleared'],
 			$summary['detected_added'],
 			$summary['detected_updated'],
 			$summary['default_added'],
@@ -526,6 +537,26 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 				'summary'                  => $summary,
 			)
 		);
+	}
+
+	private function sync_single_product_manufacturer_data( $product_id, $default_manufacturer = null ) {
+		$outcomes            = array();
+		$default_manufacturer = null === $default_manufacturer
+			? sanitize_text_field( (string) Skroutz_Xml_Feed_For_Woocommerce_Settings::get( 'default_manufacturer' ) )
+			: sanitize_text_field( (string) $default_manufacturer );
+		$brand_outcome       = $this->sync_single_product_brand_term( $product_id, $default_manufacturer );
+
+		if ( '' !== $brand_outcome ) {
+			$outcomes[] = $brand_outcome;
+		}
+
+		$manufacturer_outcome = $this->sync_single_product_manufacturer_meta( $product_id, $default_manufacturer );
+
+		if ( '' !== $manufacturer_outcome ) {
+			$outcomes[] = $manufacturer_outcome;
+		}
+
+		return $outcomes;
 	}
 
 	private function sync_single_product_manufacturer_meta( $product_id, $default_manufacturer = null ) {
@@ -597,5 +628,132 @@ class Skroutz_Xml_Feed_For_Woocommerce_Admin {
 		update_post_meta( $product_id, self::DEFAULT_MANUFACTURER_MARKER_META_KEY, 'yes' );
 		delete_post_meta( $product_id, self::DETECTED_MANUFACTURER_MARKER_META_KEY );
 		return 'default_added';
+	}
+
+	private function sync_single_product_brand_term( $product_id, $default_manufacturer ) {
+		$taxonomies = $this->get_supported_brand_taxonomies();
+
+		if ( empty( $taxonomies ) ) {
+			$this->clear_default_brand_marker_meta( $product_id );
+			return '';
+		}
+
+		$default_manufacturer = sanitize_text_field( (string) $default_manufacturer );
+		$auto_taxonomy        = (string) get_post_meta( $product_id, self::DEFAULT_BRAND_TAXONOMY_META_KEY, true );
+		$auto_term_id         = (int) get_post_meta( $product_id, self::DEFAULT_BRAND_TERM_ID_META_KEY, true );
+		$assigned_terms       = $this->get_assigned_brand_terms( $product_id, $taxonomies );
+		$has_manual_brand     = false;
+
+		foreach ( $assigned_terms as $assigned_term ) {
+			if ( $assigned_term['taxonomy'] !== $auto_taxonomy || (int) $assigned_term['term_id'] !== $auto_term_id ) {
+				$has_manual_brand = true;
+				break;
+			}
+		}
+
+		if ( $has_manual_brand ) {
+			if ( $auto_term_id > 0 && '' !== $auto_taxonomy ) {
+				wp_remove_object_terms( $product_id, array( $auto_term_id ), $auto_taxonomy );
+			}
+			$this->clear_default_brand_marker_meta( $product_id );
+			return '';
+		}
+
+		if ( '' === $default_manufacturer ) {
+			if ( $auto_term_id > 0 && '' !== $auto_taxonomy ) {
+				wp_remove_object_terms( $product_id, array( $auto_term_id ), $auto_taxonomy );
+				$this->clear_default_brand_marker_meta( $product_id );
+				return 'brand_cleared';
+			}
+
+			$this->clear_default_brand_marker_meta( $product_id );
+			return '';
+		}
+
+		$target_taxonomy = '' !== $auto_taxonomy && taxonomy_exists( $auto_taxonomy ) ? $auto_taxonomy : $taxonomies[0];
+		$term            = term_exists( $default_manufacturer, $target_taxonomy );
+
+		if ( ! $term ) {
+			$term = wp_insert_term( $default_manufacturer, $target_taxonomy );
+		}
+
+		if ( is_wp_error( $term ) || empty( $term['term_id'] ) ) {
+			$this->logger->warning(
+				'Failed to create or find default brand term.',
+				array(
+					'product_id'    => $product_id,
+					'taxonomy'      => $target_taxonomy,
+					'brand_name'    => $default_manufacturer,
+					'error_message' => is_wp_error( $term ) ? $term->get_error_message() : 'Unknown term creation failure.',
+				)
+			);
+			return '';
+		}
+
+		$target_term_id = (int) $term['term_id'];
+
+		if ( $auto_term_id > 0 && '' !== $auto_taxonomy && ( $auto_taxonomy !== $target_taxonomy || $auto_term_id !== $target_term_id ) ) {
+			wp_remove_object_terms( $product_id, array( $auto_term_id ), $auto_taxonomy );
+		}
+
+		$result = wp_set_object_terms( $product_id, array( $target_term_id ), $target_taxonomy, true );
+
+		if ( is_wp_error( $result ) ) {
+			$this->logger->warning(
+				'Failed to assign default brand term to product.',
+				array(
+					'product_id'    => $product_id,
+					'taxonomy'      => $target_taxonomy,
+					'term_id'       => $target_term_id,
+					'error_message' => $result->get_error_message(),
+				)
+			);
+			return '';
+		}
+
+		update_post_meta( $product_id, self::DEFAULT_BRAND_MARKER_META_KEY, 'yes' );
+		update_post_meta( $product_id, self::DEFAULT_BRAND_TAXONOMY_META_KEY, $target_taxonomy );
+		update_post_meta( $product_id, self::DEFAULT_BRAND_TERM_ID_META_KEY, $target_term_id );
+
+		return ( $auto_term_id > 0 && '' !== $auto_taxonomy ) ? 'brand_updated' : 'brand_added';
+	}
+
+	private function get_supported_brand_taxonomies() {
+		$taxonomies = array();
+
+		foreach ( array( 'product_brand', 'pwb-brand', 'yith_product_brand', 'brand' ) as $taxonomy ) {
+			if ( taxonomy_exists( $taxonomy ) ) {
+				$taxonomies[] = $taxonomy;
+			}
+		}
+
+		return $taxonomies;
+	}
+
+	private function get_assigned_brand_terms( $product_id, $taxonomies ) {
+		$terms = array();
+
+		foreach ( $taxonomies as $taxonomy ) {
+			$assigned = wp_get_post_terms( $product_id, $taxonomy );
+
+			if ( is_wp_error( $assigned ) || empty( $assigned ) ) {
+				continue;
+			}
+
+			foreach ( $assigned as $term ) {
+				$terms[] = array(
+					'taxonomy' => $taxonomy,
+					'term_id'  => (int) $term->term_id,
+				);
+			}
+		}
+
+		return $terms;
+	}
+
+	private function clear_default_brand_marker_meta( $product_id ) {
+		delete_post_meta( $product_id, self::DEFAULT_BRAND_MARKER_META_KEY );
+		delete_post_meta( $product_id, self::DEFAULT_BRAND_TAXONOMY_META_KEY );
+		delete_post_meta( $product_id, self::DEFAULT_BRAND_TERM_ID_META_KEY );
 	}
 }
