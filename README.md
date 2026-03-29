@@ -65,3 +65,18 @@ For feed freshness, the public endpoint is the canonical URL to share with Skrou
 ## Important note about the sample CSV
 
 The included WooCommerce export is missing several fields that Skroutz typically expects for a compliant feed, especially manufacturer/brand, MPN/SKU, and EAN/barcode values. That is why both tools expose validation and manual overrides instead of doing a blind export.
+
+## ELLIA barcode helper
+
+For the `2025 ELLIA PRICE LIST.xlsx` sheet in this repository there is now a curated helper that fills only the missing WooCommerce `SKU` column for the current ELLIA catalog export.
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path .\src)
+python .\scripts\generate_ellia_barcode_updates.py .\wc-product-export-29-3-2026-1774786776454.csv
+```
+
+It writes three CSV files into `build\`:
+
+- an import-ready copy of the WooCommerce export with only the matched SKU values filled in
+- a smaller SKU-only CSV for quick review
+- a match report showing which rows were matched, skipped, or left for manual review
