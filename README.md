@@ -68,7 +68,7 @@ The included WooCommerce export is missing several fields that Skroutz typically
 
 ## ELLIA barcode helper
 
-For the `2025 ELLIA PRICE LIST.xlsx` sheet in this repository there is now a curated helper that fills only the missing WooCommerce `SKU` column for the current ELLIA catalog export.
+For the `2025 ELLIA PRICE LIST.xlsx` sheet in this repository there is now a curated helper that fills the missing WooCommerce `SKU` and `GTIN, UPC, EAN, or ISBN` columns for the current ELLIA catalog export, without changing prices.
 
 ```powershell
 $env:PYTHONPATH = (Resolve-Path .\src)
@@ -77,6 +77,6 @@ python .\scripts\generate_ellia_barcode_updates.py .\wc-product-export-29-3-2026
 
 It writes three CSV files into `build\`:
 
-- an import-ready copy of the WooCommerce export with only the matched SKU values filled in
-- a smaller SKU-only CSV for quick review
+- an import-ready copy of the WooCommerce export with the matched SKU and GTIN values filled in
+- a smaller SKU/GTIN-only CSV for quick review
 - a match report showing which rows were matched, skipped, or left for manual review

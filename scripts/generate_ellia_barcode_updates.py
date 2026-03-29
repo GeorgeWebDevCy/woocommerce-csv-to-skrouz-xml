@@ -22,7 +22,7 @@ def find_latest_export(repo_root: Path) -> Path:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Apply curated ELLIA barcode and SKU matches to a WooCommerce product export."
+        description="Apply curated ELLIA barcode and SKU matches to a WooCommerce product export without changing prices."
     )
     parser.add_argument(
         "input_csv",
@@ -48,7 +48,7 @@ def main() -> int:
     print(f"Skipped rows: {summary['skipped']}")
     print(f"Review rows: {summary['review']}")
     print(f"Import-ready CSV: {output_paths['import_ready']}")
-    print(f"SKU-only CSV: {output_paths['sku_only']}")
+    print(f"SKU/GTIN CSV: {output_paths['sku_gtin_only']}")
     print(f"Match report CSV: {output_paths['match_report']}")
     return 0
 

@@ -22,12 +22,12 @@ class ElliaUpdatesTests(unittest.TestCase):
         self.assertEqual(summary["skipped"], 2)
         self.assertEqual(summary["review"], 2)
 
-        self.assertEqual(by_id["2725"][GTIN_COLUMN], "")
+        self.assertEqual(by_id["2725"][GTIN_COLUMN], "5292586000603")
         self.assertEqual(by_id["2725"][SKU_COLUMN], "ELLIA-CLEANSING-MILK-250ML")
-        self.assertEqual(by_id["3031"][GTIN_COLUMN], "")
-        self.assertEqual(by_id["3034"][GTIN_COLUMN], "")
+        self.assertEqual(by_id["3031"][GTIN_COLUMN], "5292586000337")
+        self.assertEqual(by_id["3034"][GTIN_COLUMN], "5292586000313")
         self.assertEqual(by_id["3638"][SKU_COLUMN], "ELLIA-OLIVE-OIL-SOAPS-120GR")
-        self.assertEqual(by_id["3644"][GTIN_COLUMN], "")
+        self.assertEqual(by_id["3644"][GTIN_COLUMN], "5292586000016")
         self.assertEqual(by_id["3002"][GTIN_COLUMN], "")
         self.assertEqual(by_id["3171"][GTIN_COLUMN], "")
         self.assertEqual(report_by_id["3002"]["Status"], "skipped")
@@ -42,7 +42,7 @@ class ElliaUpdatesTests(unittest.TestCase):
             output_paths, summary = build_ellia_update_files(LATEST_EXPORT, tmp_dir)
             self.assertEqual(summary["matched"], 37)
             self.assertTrue(output_paths["import_ready"].exists())
-            self.assertTrue(output_paths["sku_only"].exists())
+            self.assertTrue(output_paths["sku_gtin_only"].exists())
             self.assertTrue(output_paths["match_report"].exists())
 
 

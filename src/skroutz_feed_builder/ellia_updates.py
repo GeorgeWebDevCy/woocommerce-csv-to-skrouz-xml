@@ -260,6 +260,7 @@ def apply_ellia_catalog_updates(rows: list[dict[str, str]]) -> tuple[list[dict[s
                     note = f"Existing SKU differs from the curated ELLIA match ({update.sku})."
                     summary["review"] += 1
                 else:
+                    updated_row[GTIN_COLUMN] = existing_gtin or update.barcode
                     updated_row[SKU_COLUMN] = existing_sku or update.sku
                     source_name = update.source_name
                     note = update.note
@@ -282,6 +283,7 @@ def apply_ellia_catalog_updates(rows: list[dict[str, str]]) -> tuple[list[dict[s
                 "Status": status,
                 "Matched ELLIA entry": source_name,
                 "SKU": clean_text(updated_row.get(SKU_COLUMN)),
+                GTIN_COLUMN: clean_text(updated_row.get(GTIN_COLUMN)),
                 "Note": note,
             }
         )
@@ -296,7 +298,7 @@ def build_output_paths(input_csv_path: str | Path, output_dir: str | Path) -> di
     stem = source.stem
     return {
         "import_ready": base / f"{stem}-ellia-import-ready.csv",
-        "sku_only": base / f"{stem}-ellia-sku-only.csv",
+        "sku_gtin_only": base / f"{stem}-ellia-sku-gtin-only.csv",
         "match_report": base / f"{stem}-ellia-match-report.csv",
     }
 
@@ -307,13 +309,13 @@ def build_ellia_update_files(input_csv_path: str | Path, output_dir: str | Path)
     output_paths = build_output_paths(input_csv_path, output_dir)
 
     import_ready_fields = list(rows[0].keys()) if rows else []
-    sku_only_fields = ["ID", "Type", "Parent", "Published", "Name", "Brands", SKU_COLUMN]
+    sku_gtin_fields = ["ID", "Type", "Parent", "Published", "Name", "Brands", SKU_COLUMN, GTIN_COLUMN]
 
     write_csv(output_paths["import_ready"], enriched_rows, import_ready_fields)
     write_csv(
-        output_paths["sku_only"],
-        [{field: row.get(field, "") for field in sku_only_fields} for row in enriched_rows],
-        sku_only_fields,
+        output_paths["sku_gtin_only"],
+        [{field: row.get(field, "") for field in sku_gtin_fields} for row in enriched_rows],
+        sku_gtin_fields,
     )
     write_csv(output_paths["match_report"], report_rows, list(report_rows[0].keys()) if report_rows else [])
 
